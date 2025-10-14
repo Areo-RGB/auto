@@ -4,7 +4,7 @@
   "description": "",
   "main": "src/navigation_to_spielsuche.ts",
   "scripts": {
-    "start": "ts-node src/ui_server.ts & sleep 2 && xdg-open http://localhost:3000",
+    "start": "ts-node src/ui_server.ts & sleep 2 && xdg-open http://localhost:3000 2>/dev/null",
     "test": "vitest run",
     "test:watch": "vitest --watch",
     "test:coverage": "vitest run --coverage",

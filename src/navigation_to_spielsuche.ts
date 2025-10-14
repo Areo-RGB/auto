@@ -2,7 +2,13 @@
 import fs from "fs";
 import path from "path";
 import readline from "readline";
-import { chromium, type Browser, type BrowserContext, type Frame, type Page } from "playwright";
+import {
+  chromium,
+  type Browser,
+  type BrowserContext,
+  type Frame,
+  type Page,
+} from "playwright";
 
 const DFBNET_USERNAME = "66.paul.ziske";
 const DFBNET_PASSWORD = "-HpQ#@+pXcG%33?";
@@ -112,7 +118,9 @@ export function ensureRefereeJson(): void {
   );
 }
 
-export function convertRefereeCsvToJson(options: CsvConversionOptions = {}): RefereeRecord[] {
+export function convertRefereeCsvToJson(
+  options: CsvConversionOptions = {}
+): RefereeRecord[] {
   const {
     csvPath = REFEREE_CSV_PATH,
     jsonPath = REFEREE_JSON_PATH,
@@ -285,17 +293,6 @@ export interface UpcomingGame {
 }
 
 // Step 3: General browser helpers
-async function handleCookieBanner(page: Page): Promise<void> {
-  try {
-    const banner = page.getByTestId("uc-default-banner");
-    await banner.waitFor({ state: "visible", timeout: 2000 });
-    await banner.click();
-    await page.getByTestId("uc-accept-all-button").click();
-  } catch (err) {
-    // banner not shown
-  }
-}
-
 async function handlePrivacyPopup(page: Page): Promise<void> {
   try {
     const button = page.getByTestId("uc-accept-all-button");
@@ -341,14 +338,20 @@ async function processMatchReportPage(page: Page): Promise<void> {
 
   const frame = await findFrameWithText(page, "Schiedsrichter hinzufügen");
   if (!frame) {
-    console.log("Could not locate frame containing 'Schiedsrichter hinzufügen'.");
+    console.log(
+      "Could not locate frame containing 'Schiedsrichter hinzufügen'."
+    );
     return;
   }
 
   try {
-    await frame.getByText("Saison25/26MannschaftsartD-", { exact: false }).waitFor({ timeout: 5000 });
+    await frame
+      .getByText("Saison25/26MannschaftsartD-", { exact: false })
+      .waitFor({ timeout: 5000 });
   } catch {
-    console.log("Expected match detail text not found in frame; skipping referee autofill.");
+    console.log(
+      "Expected match detail text not found in frame; skipping referee autofill."
+    );
     return;
   }
 
@@ -360,10 +363,14 @@ async function processMatchReportPage(page: Page): Promise<void> {
 
   for (const [firstName, lastName] of referees) {
     try {
-      await frame.getByText("Schiedsrichter hinzufügen").click({ timeout: 5000 });
+      await frame
+        .getByText("Schiedsrichter hinzufügen")
+        .click({ timeout: 5000 });
       await frame.waitForTimeout(500);
     } catch {
-      console.log(`Could not click 'Schiedsrichter hinzufügen' for ${firstName} ${lastName}.`);
+      console.log(
+        `Could not click 'Schiedsrichter hinzufügen' for ${firstName} ${lastName}.`
+      );
       continue;
     }
 
@@ -380,7 +387,9 @@ async function processMatchReportPage(page: Page): Promise<void> {
       await frame.getByRole("button", { name: "OK" }).click();
       await frame.waitForTimeout(200);
     } catch (err) {
-      console.log(`Could not complete referee entry for ${firstName} ${lastName} (${err}).`);
+      console.log(
+        `Could not complete referee entry for ${firstName} ${lastName} (${err}).`
+      );
       continue;
     }
   }
@@ -398,21 +407,27 @@ async function processMatchReportPage(page: Page): Promise<void> {
 }
 
 // Step 5: Portal navigation helpers
-async function login(page: Page, username: string, password: string): Promise<void> {
+async function login(
+  page: Page,
+  username: string,
+  password: string
+): Promise<void> {
+  await page.getByTestId("uc-accept-all-button").click();
   await page.getByRole("button", { name: "Anmelden" }).click();
-  await handleCookieBanner(page);
+  await page.getByTestId("uc-accept-all-button").click();
   await page.getByRole("link", { name: "Anmelden" }).nth(1).click();
-  const userInput = page.getByRole("textbox", { name: "Benutzerkennung" });
-  await userInput.click();
-  await userInput.fill(username);
-  await userInput.press("Tab");
+  await page.getByRole("textbox", { name: "Benutzerkennung" }).click();
+  await page.getByRole("textbox", { name: "Benutzerkennung" }).fill(username);
+  await page.getByRole("textbox", { name: "Benutzerkennung" }).press("Tab");
+  await page.getByRole("textbox", { name: "Passwort" }).click();
   await page.getByRole("textbox", { name: "Passwort" }).fill(password);
   await page.getByRole("button", { name: "Anmelden" }).click();
 }
 
 async function navigateToSpielsuche(page: Page): Promise<void> {
-  await page.locator("#dfb-Menu-toggle").click();
-  await page.getByRole("link", { name: "Spielberichte" }).click();
+  await page.goto(
+    "https://www.dfbnet.org/spielplus/mod_sbo/webflow.do?event=START&dmg_menu=102"
+  );
 }
 
 async function selectDefaultDropdownOption(
@@ -421,7 +436,10 @@ async function selectDefaultDropdownOption(
   optionIndex = 0
 ): Promise<void> {
   try {
-    await page.getByRole("combobox", { name: "Wettkampftyp" }).nth(comboboxIndex).click();
+    await page
+      .getByRole("combobox", { name: "Wettkampftyp" })
+      .nth(comboboxIndex)
+      .click();
   } catch {
     return;
   }
@@ -448,7 +466,10 @@ async function selectDefaultDropdownOption(
   }
 }
 
-async function selectTeamCategory(page: Page, categoryKey: TeamCategoryKey): Promise<void> {
+async function selectTeamCategory(
+  page: Page,
+  categoryKey: TeamCategoryKey
+): Promise<void> {
   const label = TEAM_CATEGORIES[categoryKey] ?? null;
   if (!label) {
     console.log(`Warning: Unknown team category '${categoryKey}'`);
@@ -467,9 +488,12 @@ async function selectTeamCategory(page: Page, categoryKey: TeamCategoryKey): Pro
   if (count > 0) {
     await option.first().locator("div, span").first().click();
   } else {
-    await option.first().click().catch(() => {
-      console.log(`Could not select team category: ${label}`);
-    });
+    await option
+      .first()
+      .click()
+      .catch(() => {
+        console.log(`Could not select team category: ${label}`);
+      });
   }
   try {
     await page.keyboard.press("Escape");
@@ -478,7 +502,10 @@ async function selectTeamCategory(page: Page, categoryKey: TeamCategoryKey): Pro
   }
 }
 
-async function selectCompetitionTypes(page: Page, types: CompetitionKey[]): Promise<void> {
+async function selectCompetitionTypes(
+  page: Page,
+  types: CompetitionKey[]
+): Promise<void> {
   for (const type of types) {
     const label = COMPETITION_TYPES[type];
     if (!label) {
@@ -486,7 +513,10 @@ async function selectCompetitionTypes(page: Page, types: CompetitionKey[]): Prom
       continue;
     }
     try {
-      await page.getByRole("combobox", { name: "Wettkampftyp" }).first().click();
+      await page
+        .getByRole("combobox", { name: "Wettkampftyp" })
+        .first()
+        .click();
     } catch {
       console.log("Could not open competition type dropdown.");
       return;
@@ -496,9 +526,13 @@ async function selectCompetitionTypes(page: Page, types: CompetitionKey[]): Prom
     if (count > 0) {
       await option.first().locator("div, span").first().click();
     } else {
-      await page.getByRole("option", { name: label }).first().click().catch(() => {
-        console.log(`Could not select competition type: ${label}`);
-      });
+      await page
+        .getByRole("option", { name: label })
+        .first()
+        .click()
+        .catch(() => {
+          console.log(`Could not select competition type: ${label}`);
+        });
     }
     try {
       await page.keyboard.press("Escape");
@@ -515,7 +549,10 @@ async function selectDateAndSearch(
     competitionKeys?: CompetitionKey[];
     interactive: boolean;
   }
-): Promise<{ teamCategoryKey: TeamCategoryKey | null; competitionKeys: CompetitionKey[] }> {
+): Promise<{
+  teamCategoryKey: TeamCategoryKey | null;
+  competitionKeys: CompetitionKey[];
+}> {
   await page.locator("#dfb-Content-insert").getByRole("img").nth(1).click();
   const yearSpinner = page.getByRole("spinbutton", { name: "Year" });
   await yearSpinner.click();
@@ -570,7 +607,9 @@ async function extractUpcomingGames(page: Page): Promise<UpcomingGame[]> {
     const statusText = normalized[normalized.length - 1] || "";
     if (
       statusText &&
-      !["geplant", "planung"].some((key) => statusText.toLowerCase().includes(key))
+      !["geplant", "planung"].some((key) =>
+        statusText.toLowerCase().includes(key)
+      )
     ) {
       continue;
     }
@@ -602,7 +641,10 @@ async function extractUpcomingGames(page: Page): Promise<UpcomingGame[]> {
   return upcoming;
 }
 
-function logUpcomingGames(games: UpcomingGame[], title = "Upcoming games"): void {
+function logUpcomingGames(
+  games: UpcomingGame[],
+  title = "Upcoming games"
+): void {
   if (!games.length) {
     console.log("No upcoming games found.");
     return;
@@ -618,7 +660,9 @@ function logUpcomingGames(games: UpcomingGame[], title = "Upcoming games"): void
     if (game.status) parts.push(game.status);
     console.log(` - ${parts.join(" | ")}`);
     if (game.report_link) {
-      const linkText = game.report_link_text ? ` (${game.report_link_text})` : "";
+      const linkText = game.report_link_text
+        ? ` (${game.report_link_text})`
+        : "";
       console.log(`   Report: ${game.report_link}${linkText}`);
     }
   }
@@ -638,7 +682,9 @@ function askQuestion(question: string): Promise<string> {
   });
 }
 
-async function promptForTeamCategory(page: Page): Promise<TeamCategoryKey | null> {
+async function promptForTeamCategory(
+  page: Page
+): Promise<TeamCategoryKey | null> {
   console.log("\nAvailable team categories:");
   const keys = Object.keys(TEAM_CATEGORIES) as TeamCategoryKey[];
   keys.forEach((key, idx) => {
@@ -647,7 +693,9 @@ async function promptForTeamCategory(page: Page): Promise<TeamCategoryKey | null
   console.log(" 0. Skip team category filter");
 
   while (true) {
-    const selection = (await askQuestion("Select team category (0 to skip): ")).trim();
+    const selection = (
+      await askQuestion("Select team category (0 to skip): ")
+    ).trim();
     if (!selection) {
       console.log("Selecting default team category 'Keine Auswahl'.");
       await selectDefaultDropdownOption(page, 2, 1);
@@ -669,13 +717,17 @@ async function promptForTeamCategory(page: Page): Promise<TeamCategoryKey | null
   }
 }
 
-async function promptForCompetitionTypes(page: Page): Promise<CompetitionKey[]> {
+async function promptForCompetitionTypes(
+  page: Page
+): Promise<CompetitionKey[]> {
   console.log("\nAvailable competition types:");
   const keys = Object.keys(COMPETITION_TYPES) as CompetitionKey[];
   keys.forEach((key, idx) => {
     console.log(` ${idx + 1}. ${COMPETITION_TYPES[key]} (${key})`);
   });
-  console.log("Enter numbers separated by commas (e.g., 1,3,5). Leave blank to skip.");
+  console.log(
+    "Enter numbers separated by commas (e.g., 1,3,5). Leave blank to skip."
+  );
 
   while (true) {
     const selection = (await askQuestion("Select competition types: ")).trim();
@@ -712,46 +764,61 @@ async function promptForCompetitionTypes(page: Page): Promise<CompetitionKey[]> 
       );
       return resolved;
     }
-    console.log("Invalid selection. Please enter valid numbers separated by commas.");
+    console.log(
+      "Invalid selection. Please enter valid numbers separated by commas."
+    );
   }
 }
 
 // Step 8: Post-search filtering and editing
-export function filterGamesByTeam(games: UpcomingGame[], team: string): UpcomingGame[] {
-  return games.filter((game) => game.home_team === team || game.away_team === team);
+export function filterGamesByTeam(
+  games: UpcomingGame[],
+  team: string
+): UpcomingGame[] {
+  return games.filter(
+    (game) => game.home_team === team || game.away_team === team
+  );
 }
 
-async function promptForTeamFilter(games: UpcomingGame[]): Promise<UpcomingGame[]> {
+async function promptForTeamFilter(
+  games: UpcomingGame[]
+): Promise<UpcomingGame[]> {
   const teams = new Set<string>();
   for (const game of games) {
-    if (game.home_team.startsWith(TEAM_FILTER_PREFIX)) teams.add(game.home_team);
-    if (game.away_team.startsWith(TEAM_FILTER_PREFIX)) teams.add(game.away_team);
+    if (game.home_team.startsWith(TEAM_FILTER_PREFIX))
+      teams.add(game.home_team);
+    if (game.away_team.startsWith(TEAM_FILTER_PREFIX))
+      teams.add(game.away_team);
   }
   if (teams.size === 0) {
-    console.log(`No teams starting with '${TEAM_FILTER_PREFIX}' found in the results.`);
+    console.log(
+      `No teams starting with '${TEAM_FILTER_PREFIX}' found in the results.`
+    );
     return games;
   }
   const sorted = Array.from(teams).sort();
   console.log(`\nTeams starting with '${TEAM_FILTER_PREFIX}':`);
   sorted.forEach((team, idx) => console.log(` ${idx + 1}. ${team}`));
 
-  const answer = (await askQuestion(
-    "Enter the number of the team to filter (press Enter to skip): "
-  )).trim();
+  const answer = (
+    await askQuestion(
+      "Enter the number of the team to filter (press Enter to skip): "
+    )
+  ).trim();
   if (!answer) {
     console.log("Skipping team filter.");
     return games;
   }
   if (/^\d+$/.test(answer)) {
     const choice = Number(answer);
-      if (choice >= 1 && choice <= sorted.length) {
-        const team = sorted[choice - 1]!;
-        const filtered = filterGamesByTeam(games, team);
-        if (filtered.length) {
-          console.log();
-          logUpcomingGames(filtered, `Upcoming games for ${team}`);
-          return filtered;
-        }
+    if (choice >= 1 && choice <= sorted.length) {
+      const team = sorted[choice - 1]!;
+      const filtered = filterGamesByTeam(games, team);
+      if (filtered.length) {
+        console.log();
+        logUpcomingGames(filtered, `Upcoming games for ${team}`);
+        return filtered;
+      }
       console.log(`No games found for ${team}.`);
     }
   }
@@ -781,7 +848,10 @@ export async function openMatchReport(
   }
 }
 
-async function promptForMatchEdit(page: Page, games: UpcomingGame[]): Promise<void> {
+async function promptForMatchEdit(
+  page: Page,
+  games: UpcomingGame[]
+): Promise<void> {
   if (!games.length) {
     console.log("No games available for edit selection.");
     return;
@@ -790,13 +860,17 @@ async function promptForMatchEdit(page: Page, games: UpcomingGame[]): Promise<vo
   console.log("\nSelect a match to edit:");
   games.forEach((game, idx) => {
     console.log(
-      ` ${idx + 1}. ${game.kickoff} | ${game.home_team} vs ${game.away_team} | ${game.status}`
+      ` ${idx + 1}. ${game.kickoff} | ${game.home_team} vs ${
+        game.away_team
+      } | ${game.status}`
     );
   });
   console.log(" 0. Skip selection");
 
   while (true) {
-    const selection = (await askQuestion("Enter the number of the match to edit (0 to skip): ")).trim();
+    const selection = (
+      await askQuestion("Enter the number of the match to edit (0 to skip): ")
+    ).trim();
     if (/^\d+$/.test(selection)) {
       const choice = Number(selection);
       if (choice === 0) {
@@ -860,7 +934,6 @@ export async function run(options: RunOptions = {}): Promise<RunResult> {
   }
   await page.goto("https://portal.dfbnet.org/de/startseite.html");
 
-  await handleCookieBanner(page);
   await login(page, username, password);
   await navigateToSpielsuche(page);
   const { teamCategoryKey, competitionKeys } = await selectDateAndSearch(page, {
@@ -886,7 +959,10 @@ export async function run(options: RunOptions = {}): Promise<RunResult> {
 
   if (interactive) {
     await promptForMatchEdit(page, gamesForFollowUp);
-  } else if (matchSelectionIndex !== null && matchSelectionIndex !== undefined) {
+  } else if (
+    matchSelectionIndex !== null &&
+    matchSelectionIndex !== undefined
+  ) {
     const selectedGame = gamesForFollowUp[matchSelectionIndex] ?? null;
     if (!selectedGame) {
       console.warn("No game found for the provided match selection index.");

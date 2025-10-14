@@ -1,0 +1,536 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>DFB Match Automation UI</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <style>
+      :root {
+        color-scheme: light dark;
+        font-family: "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        background: #0f172a;
+        color: #f8fafc;
+      }
+
+      body {
+        margin: 0;
+      }
+
+      main {
+        max-width: 960px;
+        margin: 0 auto;
+        padding: 32px 16px 64px;
+      }
+
+      h1 {
+        font-size: 1.75rem;
+        margin-bottom: 1.5rem;
+        text-align: center;
+      }
+
+      section {
+        background: rgba(15, 23, 42, 0.6);
+        border: 1px solid rgba(148, 163, 184, 0.25);
+        border-radius: 12px;
+        padding: 20px;
+        margin-bottom: 24px;
+        box-shadow: 0 14px 14px -12px rgba(15, 23, 42, 0.8);
+      }
+
+      label,
+      fieldset {
+        display: block;
+        margin-bottom: 16px;
+      }
+
+      select,
+      button {
+        font-size: 1rem;
+      }
+
+      select,
+      input[type="checkbox"] {
+        margin-top: 6px;
+      }
+
+      fieldset {
+        border: 1px solid rgba(148, 163, 184, 0.4);
+        border-radius: 8px;
+        padding: 12px 16px;
+      }
+
+      fieldset legend {
+        padding: 0 8px;
+        font-weight: 600;
+      }
+
+      .actions {
+        display: flex;
+        gap: 12px;
+        flex-wrap: wrap;
+        align-items: center;
+      }
+
+      button {
+        padding: 10px 16px;
+        border-radius: 8px;
+        border: none;
+        background: #2563eb;
+        color: #f8fafc;
+        cursor: pointer;
+        transition: background 0.2s ease;
+      }
+
+      button.secondary {
+        background: #475569;
+      }
+
+      button:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+      }
+
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 16px;
+      }
+
+      th,
+      td {
+        padding: 10px 12px;
+        border-bottom: 1px solid rgba(148, 163, 184, 0.2);
+        text-align: left;
+        font-size: 0.95rem;
+      }
+
+      tbody tr:hover {
+        background: rgba(37, 99, 235, 0.15);
+      }
+
+      .status {
+        margin-top: 12px;
+        font-size: 0.95rem;
+        min-height: 1.2em;
+      }
+
+      .status.error {
+        color: #f87171;
+      }
+
+      .status.success {
+        color: #4ade80;
+      }
+
+      .controls {
+        display: flex;
+        gap: 16px;
+        align-items: center;
+        flex-wrap: wrap;
+      }
+
+      .controls select {
+        min-width: 220px;
+      }
+
+      @media (max-width: 720px) {
+        fieldset legend {
+          font-size: 0.95rem;
+        }
+
+        th,
+        td {
+          font-size: 0.85rem;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>DFB Match Automation</h1>
+
+      <section>
+        <form id="automationForm">
+          <label for="teamCategory">
+            Team category
+            <select id="teamCategory">
+              <option value="">Skip (use default)</option>
+            </select>
+          </label>
+
+          <fieldset>
+            <legend>Competition types</legend>
+            <div id="competitionTypeList"></div>
+            <label style="display: inline-flex; gap: 8px; align-items: center; margin-top: 8px">
+              <input type="checkbox" id="selectAllCompetitions" />
+              Select all
+            </label>
+          </fieldset>
+
+          <label style="display: inline-flex; gap: 8px; align-items: center">
+            <input type="checkbox" id="headlessMode" />
+            Run headless (without interactive browser)
+          </label>
+
+          <div class="actions">
+            <button type="submit" id="runButton">Run search</button>
+            <button type="button" class="secondary" id="closeButton">Close session</button>
+          </div>
+        </form>
+        <div id="status" class="status"></div>
+      </section>
+
+      <section>
+        <div class="controls">
+          <label for="teamFilter">
+            Filter by team
+            <select id="teamFilter">
+              <option value="">Show all teams</option>
+            </select>
+          </label>
+          <button id="addRefereesButton" class="secondary" type="button">
+            Add referees for team
+          </button>
+          <span id="resultsSummary"></span>
+        </div>
+
+        <table>
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Date</th>
+              <th>Matchday</th>
+              <th>Home</th>
+              <th>Away</th>
+              <th>Status</th>
+              <th>Report</th>
+            </tr>
+          </thead>
+          <tbody id="resultsBody"></tbody>
+        </table>
+      </section>
+    </main>
+
+    <script>
+      const state = {
+        games: [],
+        teams: [],
+        filterTeam: "",
+        optionsLoaded: false,
+      };
+
+      const teamCategorySelect = document.getElementById("teamCategory");
+      const competitionTypeList = document.getElementById("competitionTypeList");
+      const selectAllCompetitions = document.getElementById("selectAllCompetitions");
+      const teamFilter = document.getElementById("teamFilter");
+      const addRefereesButton = document.getElementById("addRefereesButton");
+      const resultsBody = document.getElementById("resultsBody");
+      const resultsSummary = document.getElementById("resultsSummary");
+      const statusLine = document.getElementById("status");
+      const automationForm = document.getElementById("automationForm");
+      const runButton = document.getElementById("runButton");
+      const closeButton = document.getElementById("closeButton");
+      const headlessMode = document.getElementById("headlessMode");
+
+      function setStatus(message, tone = "neutral") {
+        statusLine.textContent = message;
+        statusLine.classList.remove("error", "success");
+        if (tone === "error") statusLine.classList.add("error");
+        if (tone === "success") statusLine.classList.add("success");
+      }
+
+      function competitionCheckboxes() {
+        return Array.from(
+          competitionTypeList.querySelectorAll('input[type="checkbox"][name="competition"]')
+        );
+      }
+
+      function refreshTeamFilter() {
+        const previous = teamFilter.value;
+        teamFilter.innerHTML = '<option value="">Show all teams</option>';
+        state.teams.forEach((team) => {
+          const option = document.createElement("option");
+          option.value = team;
+          option.textContent = team;
+          teamFilter.appendChild(option);
+        });
+        if (previous && state.teams.includes(previous)) {
+          teamFilter.value = previous;
+          state.filterTeam = previous;
+        } else {
+          state.filterTeam = "";
+        }
+        updateBulkRefereesButton();
+      }
+
+      function selectedTeamMatches() {
+        const team = state.filterTeam;
+        if (!team) return [];
+        return state.games.filter(
+          (game) => game.home_team === team || game.away_team === team
+        );
+      }
+
+      function updateBulkRefereesButton(forceDisabled = null) {
+        if (!addRefereesButton) return;
+        if (forceDisabled !== null) {
+          addRefereesButton.disabled = forceDisabled;
+          return;
+        }
+        const eligibleMatches = selectedTeamMatches();
+        addRefereesButton.disabled = eligibleMatches.length === 0;
+      }
+
+      function renderGames() {
+        const filtered =
+          state.filterTeam
+            ? state.games.filter(
+                (game) => game.home_team === state.filterTeam || game.away_team === state.filterTeam
+            )
+            : state.games;
+
+        resultsBody.innerHTML = "";
+        if (filtered.length === 0) {
+          const row = document.createElement("tr");
+          const cell = document.createElement("td");
+          cell.colSpan = 7;
+          cell.textContent = "No results yet.";
+          row.appendChild(cell);
+          resultsBody.appendChild(row);
+        } else {
+          filtered.forEach((game, visibleIndex) => {
+            const row = document.createElement("tr");
+            const cells = [
+              game.index + 1,
+              game.kickoff,
+              game.matchday,
+              game.home_team,
+              game.away_team,
+              game.status,
+            ];
+
+            cells.forEach((value) => {
+              const cell = document.createElement("td");
+              cell.textContent = value || "-";
+              row.appendChild(cell);
+            });
+
+            const actionCell = document.createElement("td");
+            const button = document.createElement("button");
+            button.textContent = "Open match";
+            button.addEventListener("click", () => openMatch(game.index));
+            actionCell.appendChild(button);
+            row.appendChild(actionCell);
+
+            resultsBody.appendChild(row);
+          });
+        }
+
+        resultsSummary.textContent = filtered.length
+          ? `${filtered.length} game(s) listed`
+          : "";
+        updateBulkRefereesButton();
+      }
+
+      async function loadOptions() {
+        try {
+          const response = await fetch("/api/options");
+          const data = await response.json();
+          data.teamCategories.forEach(({ key, label }) => {
+            const option = document.createElement("option");
+            option.value = key;
+            option.textContent = label;
+            teamCategorySelect.appendChild(option);
+          });
+
+          data.competitionTypes.forEach(({ key, label }) => {
+            const wrapper = document.createElement("label");
+            wrapper.style.display = "inline-flex";
+            wrapper.style.alignItems = "center";
+            wrapper.style.gap = "8px";
+            wrapper.style.marginRight = "12px";
+            wrapper.style.marginBottom = "8px";
+
+            const input = document.createElement("input");
+            input.type = "checkbox";
+            input.name = "competition";
+            input.value = key;
+
+            wrapper.appendChild(input);
+            wrapper.appendChild(document.createTextNode(label));
+            competitionTypeList.appendChild(wrapper);
+          });
+          state.optionsLoaded = true;
+        } catch (err) {
+          console.error(err);
+          setStatus("Could not load options metadata.", "error");
+        }
+      }
+
+      async function openMatch(index) {
+        setStatus("Opening match report...");
+        disableControls(true);
+        try {
+          const response = await fetch("/api/open-match", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ index }),
+          });
+          const data = await response.json();
+          if (!response.ok) {
+            throw new Error(data.error || "Failed to open match.");
+          }
+          setStatus("Match report opened in Playwright browser.", "success");
+        } catch (err) {
+          console.error(err);
+          setStatus(err.message || "Failed to open match.", "error");
+        } finally {
+          disableControls(false);
+        }
+      }
+
+      function disableControls(disabled) {
+        runButton.disabled = disabled;
+        closeButton.disabled = disabled;
+        competitionCheckboxes().forEach((checkbox) => {
+          checkbox.disabled = disabled;
+        });
+        selectAllCompetitions.disabled = disabled;
+        teamCategorySelect.disabled = disabled;
+        headlessMode.disabled = disabled;
+        teamFilter.disabled = disabled;
+        if (disabled) {
+          updateBulkRefereesButton(true);
+        } else {
+          updateBulkRefereesButton();
+        }
+      }
+
+      automationForm.addEventListener("submit", async (event) => {
+        event.preventDefault();
+        if (!state.optionsLoaded) {
+          await loadOptions();
+        }
+        disableControls(true);
+        setStatus("Running search...");
+
+        const competitionKeys = competitionCheckboxes()
+          .filter((checkbox) => checkbox.checked)
+          .map((checkbox) => checkbox.value);
+
+        const payload = {
+          teamCategoryKey: teamCategorySelect.value || null,
+          competitionKeys,
+          headless: headlessMode.checked,
+        };
+
+        try {
+          const response = await fetch("/api/run", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
+          });
+          const data = await response.json();
+          if (!response.ok) {
+            throw new Error(data.error || "Automation failed.");
+          }
+
+          state.games = data.games || [];
+          state.teams = data.teams || [];
+          refreshTeamFilter();
+          renderGames();
+
+          const summary = state.games.length
+            ? `Found ${state.games.length} game(s).`
+            : "No games returned for the selected filters.";
+          setStatus(summary, "success");
+        } catch (err) {
+          console.error(err);
+          setStatus(err.message || "Automation failed.", "error");
+        } finally {
+          disableControls(false);
+        }
+      });
+
+      closeButton.addEventListener("click", async () => {
+        disableControls(true);
+        setStatus("Closing Playwright session...");
+        try {
+          const response = await fetch("/api/close", { method: "POST" });
+          if (!response.ok) {
+            const data = await response.json();
+            throw new Error(data.error || "Failed to close session.");
+          }
+          state.games = [];
+          state.teams = [];
+          refreshTeamFilter();
+          renderGames();
+          setStatus("Session closed.", "success");
+        } catch (err) {
+          console.error(err);
+          setStatus(err.message || "Failed to close session.", "error");
+        } finally {
+          disableControls(false);
+        }
+      });
+
+      teamFilter.addEventListener("change", () => {
+        state.filterTeam = teamFilter.value || "";
+        renderGames();
+      });
+
+      if (addRefereesButton) addRefereesButton.addEventListener("click", async () => {
+        const team = state.filterTeam;
+        if (!team) {
+          setStatus("Select a team before adding referees.", "error");
+          return;
+        }
+        const matches = selectedTeamMatches();
+        if (matches.length === 0) {
+          setStatus("No matches available for the selected team.", "error");
+          return;
+        }
+
+        disableControls(true);
+        setStatus(`Adding referees for ${team} (${matches.length} match${matches.length === 1 ? "" : "es"})...`);
+        try {
+          const response = await fetch("/api/add-referees", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ team }),
+          });
+          const data = await response.json();
+          if (!response.ok) {
+            throw new Error(data.error || "Failed to add referees.");
+          }
+          const successCount = data.successCount ?? 0;
+          const failureCount = data.failureCount ?? 0;
+          const tone = failureCount > 0 ? "error" : "success";
+          const summaryParts = [
+            `Processed ${data.processed ?? matches.length} match(es) for ${team}.`,
+            `${successCount} succeeded.`,
+          ];
+          if (failureCount > 0) {
+            summaryParts.push(`${failureCount} failed.`);
+          }
+          setStatus(summaryParts.join(" "), tone);
+        } catch (err) {
+          console.error(err);
+          setStatus(err.message || "Failed to add referees.", "error");
+        } finally {
+          disableControls(false);
+        }
+      });
+
+      selectAllCompetitions.addEventListener("change", () => {
+        const checked = selectAllCompetitions.checked;
+        competitionCheckboxes().forEach((checkbox) => {
+          checkbox.checked = checked;
+        });
+      });
+
+      document.addEventListener("DOMContentLoaded", loadOptions);
+      updateBulkRefereesButton();
+    </script>
+  </body>
+</html>

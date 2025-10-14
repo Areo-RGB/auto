@@ -1,0 +1,32 @@
+{
+  "name": "dfb",
+  "version": "1.0.0",
+  "description": "",
+  "main": "dist/navigation_to_spielsuche.js",
+  "scripts": {
+    "build": "tsc",
+    "start": "npm run build && node dist/navigation_to_spielsuche.js",
+    "dev": "ts-node src/navigation_to_spielsuche.ts",
+    "ui": "ts-node src/ui_server.ts",
+    "test": "vitest run",
+    "test:watch": "vitest --watch",
+    "test:coverage": "vitest run --coverage",
+    "codegen": "npx playwright codegen"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "express": "^5.1.0",
+    "playwright": "^1.56.0"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.3",
+    "@types/node": "^24.7.2",
+    "@vitest/coverage-istanbul": "^3.2.4",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.9.3",
+    "vitest": "^3.2.4"
+  }
+}

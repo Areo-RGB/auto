@@ -19,7 +19,22 @@ const ROOT_DIR = path.resolve(__dirname, "..");
 const REFEREE_JSON_PATH = path.join(ROOT_DIR, "referees.json");
 const REFEREE_CSV_PATH = path.join(ROOT_DIR, "referees.csv");
 
+const CONTEXT_KEYS = [
+  "Saison",
+  "Mannschaftsart",
+  "Spielklasse",
+  "Gebiet",
+  "Wettkampf",
+  "Staffel",
+  "Runde",
+] as const;
+
+const CONTEXT_KEY_SEPARATOR = "::";
+
+type ContextKey = (typeof CONTEXT_KEYS)[number];
+
 interface RefereeRecord {
+  [key: string]: string | undefined;
   Saison?: string;
   Mannschaftsart?: string;
   Spielklasse?: string;
@@ -29,7 +44,18 @@ interface RefereeRecord {
   Runde?: string;
   Vorname?: string;
   Nachname?: string;
-  [key: string]: string | undefined;
+}
+
+type MatchContext = Record<ContextKey, string>;
+
+interface RefereeEntry {
+  Vorname: string;
+  Nachname: string;
+}
+
+interface RefereeGroup {
+  context: MatchContext;
+  referees: RefereeEntry[];
 }
 
 type RefereeName = [string, string];
@@ -59,40 +85,27 @@ export interface RunResult {
   selectedTeamCategory: TeamCategoryKey | null;
   selectedCompetitionKeys: CompetitionKey[];
 }
-const DEFAULT_REFEREES: RefereeRecord[] = [
+const TARGET_MATCH_CONTEXT: MatchContext = {
+  Saison: "Saison25/26",
+  Mannschaftsart: "MannschaftsartD-Junioren",
+  Spielklasse: "SpielklasseKreisklasse C",
+  Gebiet: "GebietKreis Berlin",
+  Wettkampf: "WettkampfMeisterschaft",
+  Staffel: "Staffelunt. D-Junioren Kreisklasse C St.1 Hin",
+  Runde: "RundeRunde 1",
+};
+
+const DEFAULT_REFEREE_GROUPS: RefereeGroup[] = [
   {
-    Saison: "Saison25/26",
-    Mannschaftsart: "MannschaftsartD-Junioren",
-    Spielklasse: "SpielklasseKreisklasse C",
-    Gebiet: "GebietKreis Berlin",
-    Wettkampf: "WettkampfMeisterschaft",
-    Staffel: "Staffelunt. D-Junioren Kreisklasse C St.1 Hin",
-    Runde: "RundeRunde 1",
-    Vorname: "Paul",
-    Nachname: "Ziske",
-  },
-  {
-    Saison: "Saison25/26",
-    Mannschaftsart: "MannschaftsartD-Junioren",
-    Spielklasse: "SpielklasseKreisklasse C",
-    Gebiet: "GebietKreis Berlin",
-    Wettkampf: "WettkampfMeisterschaft",
-    Staffel: "Staffelunt. D-Junioren Kreisklasse C St.1 Hin",
-    Runde: "RundeRunde 1",
-    Vorname: "Gregor",
-    Nachname: "Aschenbroich",
+    context: { ...TARGET_MATCH_CONTEXT },
+    referees: [
+      { Vorname: "Paul", Nachname: "Ziske" },
+      { Vorname: "Gregor", Nachname: "Aschenbroich" },
+    ],
   },
 ];
 
-const EXPECTED_DETAIL_TEXT = [
-  "Saison25/26",
-  "MannschaftsartD-Junioren",
-  "SpielklasseKreisklasse C",
-  "GebietKreis Berlin",
-  "WettkampfMeisterschaft",
-  "Staffelunt. D-Junioren Kreisklasse C St.1 Hin",
-  "RundeRunde 1",
-].join("");
+const EXPECTED_DETAIL_TEXT = contextToDetailText(TARGET_MATCH_CONTEXT);
 
 const TEAM_FILTER_PREFIX = "FC Hertha 03";
 
@@ -113,14 +126,14 @@ export function ensureRefereeJson(): void {
   }
   fs.writeFileSync(
     REFEREE_JSON_PATH,
-    JSON.stringify(DEFAULT_REFEREES, null, 2),
+    JSON.stringify(DEFAULT_REFEREE_GROUPS, null, 2),
     "utf-8"
   );
 }
 
 export function convertRefereeCsvToJson(
   options: CsvConversionOptions = {}
-): RefereeRecord[] {
+): RefereeGroup[] {
   const {
     csvPath = REFEREE_CSV_PATH,
     jsonPath = REFEREE_JSON_PATH,
@@ -158,8 +171,48 @@ export function convertRefereeCsvToJson(
     });
     return record;
   });
-  fs.writeFileSync(jsonPath, JSON.stringify(records, null, 2), "utf-8");
-  return records;
+  const groups = groupRefereeRecords(records);
+  fs.writeFileSync(jsonPath, JSON.stringify(groups, null, 2), "utf-8");
+  return groups;
+}
+
+function groupRefereeRecords(records: RefereeRecord[]): RefereeGroup[] {
+  const grouped = new Map<string, RefereeGroup>();
+  for (const record of records) {
+    const context = createContextFromRecord(record);
+    const key = buildContextKey(context);
+    const firstName = record.Vorname ?? "";
+    const lastName = record.Nachname ?? "";
+
+    if (!firstName && !lastName) {
+      continue;
+    }
+
+    let entry = grouped.get(key);
+    if (!entry) {
+      entry = { context, referees: [] };
+      grouped.set(key, entry);
+    }
+    entry.referees.push({ Vorname: firstName, Nachname: lastName });
+  }
+  return Array.from(grouped.values());
+}
+
+function createContextFromRecord(record: RefereeRecord): MatchContext {
+  const context = {} as MatchContext;
+  for (const key of CONTEXT_KEYS) {
+    const value = record[key];
+    context[key] = typeof value === "string" ? value : "";
+  }
+  return context;
+}
+
+function buildContextKey(context: MatchContext): string {
+  return CONTEXT_KEYS.map((key) => context[key] ?? "").join(CONTEXT_KEY_SEPARATOR);
+}
+
+function contextToDetailText(context: MatchContext): string {
+  return CONTEXT_KEYS.map((key) => context[key]).join("");
 }
 
 function parseCsvLine(line: string): string[] {
@@ -189,7 +242,58 @@ function parseCsvLine(line: string): string[] {
   return result;
 }
 
-export function loadRefereeRecords(): RefereeRecord[] {
+function normalizeRefereeGroup(entry: unknown): RefereeGroup {
+  const contextSource =
+    entry &&
+    typeof entry === "object" &&
+    entry !== null &&
+    "context" in (entry as Record<string, unknown>)
+      ? ((entry as Record<string, unknown>).context as Record<string, unknown> | undefined)
+      : undefined;
+
+  const context = {} as MatchContext;
+  for (const key of CONTEXT_KEYS) {
+    const value = contextSource?.[key];
+    context[key] = typeof value === "string" ? value : "";
+  }
+
+  const refereesSource =
+    entry &&
+    typeof entry === "object" &&
+    entry !== null &&
+    "referees" in (entry as Record<string, unknown>)
+      ? ((entry as Record<string, unknown>).referees as unknown[] | undefined)
+      : undefined;
+
+  const referees: RefereeEntry[] = Array.isArray(refereesSource)
+    ? refereesSource
+        .map((ref) => {
+          if (!ref || typeof ref !== "object") {
+            return { Vorname: "", Nachname: "" };
+          }
+          const source = ref as Record<string, unknown>;
+          const firstName = typeof source.Vorname === "string" ? source.Vorname : "";
+          const lastName = typeof source.Nachname === "string" ? source.Nachname : "";
+          return { Vorname: firstName, Nachname: lastName };
+        })
+        .filter((ref) => ref.Vorname !== "" || ref.Nachname !== "")
+    : [];
+
+  return { context, referees };
+}
+
+function cloneDefaultRefereeGroups(): RefereeGroup[] {
+  return DEFAULT_REFEREE_GROUPS.map((group) => ({
+    context: { ...group.context },
+    referees: group.referees.map((ref) => ({ ...ref })),
+  }));
+}
+
+function contextsEqual(a: MatchContext, b: MatchContext): boolean {
+  return CONTEXT_KEYS.every((key) => a[key] === b[key]);
+}
+
+export function loadRefereeGroups(): RefereeGroup[] {
   ensureRefereeJson();
   const content = fs.readFileSync(REFEREE_JSON_PATH, "utf-8").trim();
   if (!content) {
@@ -197,32 +301,28 @@ export function loadRefereeRecords(): RefereeRecord[] {
   }
   try {
     const data = JSON.parse(content) as unknown;
-    return Array.isArray(data) ? (data as RefereeRecord[]) : [];
+    if (!Array.isArray(data)) {
+      return [];
+    }
+    return data.map((entry) => normalizeRefereeGroup(entry));
   } catch (err) {
     console.warn(
       `Could not parse referee data at ${REFEREE_JSON_PATH}. Falling back to defaults.`,
       err
     );
-    return DEFAULT_REFEREES;
+    return cloneDefaultRefereeGroups();
   }
 }
 
 export function findRefereesForDetails(): RefereeName[] {
   const matches: RefereeName[] = [];
-  const records = loadRefereeRecords();
-  for (const record of records) {
-    if (
-      record.Saison === "Saison25/26" &&
-      record.Mannschaftsart === "MannschaftsartD-Junioren" &&
-      record.Spielklasse === "SpielklasseKreisklasse C" &&
-      record.Gebiet === "GebietKreis Berlin" &&
-      record.Wettkampf === "WettkampfMeisterschaft" &&
-      record.Staffel === "Staffelunt. D-Junioren Kreisklasse C St.1 Hin" &&
-      record.Runde === "RundeRunde 1"
-    ) {
-      const firstName = record.Vorname ?? "";
-      const lastName = record.Nachname ?? "";
-      matches.push([firstName, lastName]);
+  const groups = loadRefereeGroups();
+  for (const group of groups) {
+    if (!contextsEqual(group.context, TARGET_MATCH_CONTEXT)) {
+      continue;
+    }
+    for (const referee of group.referees) {
+      matches.push([referee.Vorname, referee.Nachname]);
     }
   }
   return matches;

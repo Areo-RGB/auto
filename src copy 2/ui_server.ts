@@ -1,5 +1,6 @@
 import express from "express";
 import path from "path";
+import dotenv from "dotenv";
 import {
   COMPETITION_TYPES,
   TEAM_CATEGORIES,
@@ -11,7 +12,9 @@ import {
   type RunResult,
   type TeamCategoryKey,
   type UpcomingGame,
-} from "./navigation_to_spielsuche";
+} from "./index";
+
+dotenv.config();
 
 const PORT = Number(process.env.PORT ?? "3000");
 const ROOT_DIR = path.resolve(__dirname, "..");

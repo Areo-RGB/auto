@@ -4,5 +4,5 @@
     "noEmit": true,
     "types": ["node", "vitest"]
   },
-  "include": ["src/**/*.ts", "tests/**/*.ts"]
+  "include": ["src/**/*.ts", "src copy 4/**/*.ts", "tests/**/*.ts"]
 }

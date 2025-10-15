@@ -81,9 +81,7 @@ app.post("/api/run", async (req, res) => {
   const teamCategoryKey = isTeamCategoryKey(rawTeamCategory)
     ? rawTeamCategory
     : null;
-  const competitionKeys = rawCompetitionKeys.filter(
-    isCompetitionKey
-  ) as CompetitionKey[];
+  const competitionKeys = rawCompetitionKeys.filter(isCompetitionKey) as CompetitionKey[];
 
   const headless = Boolean(body.headless ?? false);
 
@@ -113,10 +111,7 @@ app.post("/api/run", async (req, res) => {
 
 app.post("/api/filter", (req, res) => {
   const body = req.body ?? {};
-  const team =
-    typeof body.team === "string" && body.team.trim().length > 0
-      ? body.team.trim()
-      : null;
+  const team = typeof body.team === "string" && body.team.trim().length > 0 ? body.team.trim() : null;
   if (!team) {
     return res.json({
       games: games.map((game, index) => ({ index, ...game })),
@@ -133,16 +128,10 @@ app.post("/api/filter", (req, res) => {
 
 app.post("/api/open-match", async (req, res) => {
   if (!automation) {
-    return res
-      .status(409)
-      .json({ error: "Automation session not active. Run the search first." });
+    return res.status(409).json({ error: "Automation session not active. Run the search first." });
   }
   const matchIndex = Number(req.body?.index);
-  if (
-    !Number.isInteger(matchIndex) ||
-    matchIndex < 0 ||
-    matchIndex >= games.length
-  ) {
+  if (!Number.isInteger(matchIndex) || matchIndex < 0 || matchIndex >= games.length) {
     return res.status(400).json({ error: "Invalid match index." });
   }
 
@@ -161,9 +150,7 @@ app.post("/api/open-match", async (req, res) => {
 
 app.post("/api/add-referees", async (req, res) => {
   if (!automation) {
-    return res
-      .status(409)
-      .json({ error: "Automation session not active. Run the search first." });
+    return res.status(409).json({ error: "Automation session not active. Run the search first." });
   }
   const team = typeof req.body?.team === "string" ? req.body.team.trim() : "";
   if (!team) {
@@ -171,9 +158,7 @@ app.post("/api/add-referees", async (req, res) => {
   }
   const targetGames = filterGamesByTeam(games, team);
   if (targetGames.length === 0) {
-    return res
-      .status(404)
-      .json({ error: `No games found for team '${team}'.` });
+    return res.status(404).json({ error: `No games found for team '${team}'.` });
   }
 
   const failures: { index: number; message: string }[] = [];

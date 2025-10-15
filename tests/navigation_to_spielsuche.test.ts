@@ -90,10 +90,16 @@ describe("convertRefereeCsvToJson", () => {
 
     expect(records).toHaveLength(1);
     expect(records[0]).toMatchObject({
-      Saison: "Saison25/26",
-      Mannschaftsart: "MannschaftsartD-Junioren",
-      Vorname: "Paul",
-      Nachname: "Ziske",
+      context: {
+        Saison: "Saison25/26",
+        Mannschaftsart: "MannschaftsartD-Junioren",
+        Spielklasse: "SpielklasseKreisklasse C",
+        Gebiet: "GebietKreis Berlin",
+        Wettkampf: "WettkampfMeisterschaft",
+        Staffel: "Staffelunt. D-Junioren Kreisklasse C St.1 Hin",
+        Runde: "RundeRunde 1",
+      },
+      referees: [{ Vorname: "Paul", Nachname: "Ziske" }],
     });
 
     const persisted = JSON.parse(fs.readFileSync(jsonPath, "utf-8"));
@@ -113,8 +119,9 @@ describe("ensureRefereeJson", () => {
     expect(fs.existsSync(refereeJsonPath)).toBe(true);
     const records = JSON.parse(fs.readFileSync(refereeJsonPath, "utf-8"));
     expect(Array.isArray(records)).toBe(true);
-    expect(records).toHaveLength(2);
-    const surnames = records.map((entry: any) => entry?.Nachname);
+    expect(records).toHaveLength(1);
+    const referees = records[0].referees ?? [];
+    const surnames = referees.map((entry: any) => entry?.Nachname);
     expect(surnames).toContain("Ziske");
     expect(surnames).toContain("Aschenbroich");
   });
@@ -151,13 +158,12 @@ describe("ensureRefereeJson", () => {
     const records = JSON.parse(fs.readFileSync(refereeJsonPath, "utf-8"));
     expect(records).toHaveLength(1);
     expect(records[0]).toMatchObject({
-      Vorname: "Custom",
-      Nachname: "Referee",
+      referees: [{ Vorname: "Custom", Nachname: "Referee" }],
     });
   });
 });
 
-describe("loadRefereeRecords", () => {
+describe("loadRefereeGroups", () => {
   beforeEach(() => {
     fs.rmSync(refereeCsvPath, { force: true });
   });
@@ -165,7 +171,7 @@ describe("loadRefereeRecords", () => {
   it("returns an empty array when the saved JSON is empty", () => {
     fs.writeFileSync(refereeJsonPath, "", "utf-8");
 
-    const records = navigation.loadRefereeRecords();
+    const records = navigation.loadRefereeGroups();
     expect(records).toEqual([]);
   });
 
@@ -173,11 +179,11 @@ describe("loadRefereeRecords", () => {
     const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
     fs.writeFileSync(refereeJsonPath, "{ invalid json", "utf-8");
 
-    const records = navigation.loadRefereeRecords();
+    const records = navigation.loadRefereeGroups();
 
     expect(warnSpy).toHaveBeenCalled();
-    expect(records).toHaveLength(2);
-    const lastNames = records.map((entry) => entry?.Nachname);
+    expect(records).toHaveLength(1);
+    const lastNames = records[0].referees.map((entry: any) => entry?.Nachname);
     expect(lastNames).toContain("Ziske");
     expect(lastNames).toContain("Aschenbroich");
   });
@@ -187,37 +193,31 @@ describe("findRefereesForDetails", () => {
   it("returns referee name tuples for the expected match context", () => {
     const records = [
       {
-        Saison: "Saison25/26",
-        Mannschaftsart: "MannschaftsartD-Junioren",
-        Spielklasse: "SpielklasseKreisklasse C",
-        Gebiet: "GebietKreis Berlin",
-        Wettkampf: "WettkampfMeisterschaft",
-        Staffel: "Staffelunt. D-Junioren Kreisklasse C St.1 Hin",
-        Runde: "RundeRunde 1",
-        Vorname: "Paula",
-        Nachname: "Ziske",
+        context: {
+          Saison: "Saison25/26",
+          Mannschaftsart: "MannschaftsartD-Junioren",
+          Spielklasse: "SpielklasseKreisklasse C",
+          Gebiet: "GebietKreis Berlin",
+          Wettkampf: "WettkampfMeisterschaft",
+          Staffel: "Staffelunt. D-Junioren Kreisklasse C St.1 Hin",
+          Runde: "RundeRunde 1",
+        },
+        referees: [
+          { Vorname: "Paula", Nachname: "Ziske" },
+          { Vorname: "Gregor", Nachname: "Aschenbroich" },
+        ],
       },
       {
-        Saison: "Saison25/26",
-        Mannschaftsart: "MannschaftsartD-Junioren",
-        Spielklasse: "SpielklasseKreisklasse C",
-        Gebiet: "GebietKreis Berlin",
-        Wettkampf: "WettkampfMeisterschaft",
-        Staffel: "Staffelunt. D-Junioren Kreisklasse C St.1 Hin",
-        Runde: "RundeRunde 1",
-        Vorname: "Gregor",
-        Nachname: "Aschenbroich",
-      },
-      {
-        Saison: "Saison23/24",
-        Mannschaftsart: "MannschaftsartHerren",
-        Spielklasse: "SpielklasseKreisliga A",
-        Gebiet: "GebietKreis Munich",
-        Wettkampf: "WettkampfFreundschaftsspiel",
-        Staffel: "StaffelSomething Else",
-        Runde: "Runde 2",
-        Vorname: "Other",
-        Nachname: "Ref",
+        context: {
+          Saison: "Saison23/24",
+          Mannschaftsart: "MannschaftsartHerren",
+          Spielklasse: "SpielklasseKreisliga A",
+          Gebiet: "GebietKreis Munich",
+          Wettkampf: "WettkampfFreundschaftsspiel",
+          Staffel: "StaffelSomething Else",
+          Runde: "Runde 2",
+        },
+        referees: [{ Vorname: "Other", Nachname: "Ref" }],
       },
     ];
     fs.writeFileSync(refereeJsonPath, JSON.stringify(records, null, 2), "utf-8");
@@ -232,8 +232,16 @@ describe("findRefereesForDetails", () => {
   it("returns an empty array when no matching referees exist", () => {
     const noMatches = [
       {
-        Saison: "Saison23/24",
-        Mannschaftsart: "MannschaftsartHerren",
+        context: {
+          Saison: "Saison23/24",
+          Mannschaftsart: "MannschaftsartHerren",
+          Spielklasse: "",
+          Gebiet: "",
+          Wettkampf: "",
+          Staffel: "",
+          Runde: "",
+        },
+        referees: [{ Vorname: "Other", Nachname: "Ref" }],
       },
     ];
     fs.writeFileSync(refereeJsonPath, JSON.stringify(noMatches, null, 2), "utf-8");

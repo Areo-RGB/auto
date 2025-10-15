@@ -208,9 +208,7 @@ function createContextFromRecord(record: RefereeRecord): MatchContext {
 }
 
 function buildContextKey(context: MatchContext): string {
-  return CONTEXT_KEYS.map((key) => context[key] ?? "").join(
-    CONTEXT_KEY_SEPARATOR
-  );
+  return CONTEXT_KEYS.map((key) => context[key] ?? "").join(CONTEXT_KEY_SEPARATOR);
 }
 
 function contextToDetailText(context: MatchContext): string {
@@ -250,9 +248,7 @@ function normalizeRefereeGroup(entry: unknown): RefereeGroup {
     typeof entry === "object" &&
     entry !== null &&
     "context" in (entry as Record<string, unknown>)
-      ? ((entry as Record<string, unknown>).context as
-          | Record<string, unknown>
-          | undefined)
+      ? ((entry as Record<string, unknown>).context as Record<string, unknown> | undefined)
       : undefined;
 
   const context = {} as MatchContext;
@@ -276,10 +272,8 @@ function normalizeRefereeGroup(entry: unknown): RefereeGroup {
             return { Vorname: "", Nachname: "" };
           }
           const source = ref as Record<string, unknown>;
-          const firstName =
-            typeof source.Vorname === "string" ? source.Vorname : "";
-          const lastName =
-            typeof source.Nachname === "string" ? source.Nachname : "";
+          const firstName = typeof source.Vorname === "string" ? source.Vorname : "";
+          const lastName = typeof source.Nachname === "string" ? source.Nachname : "";
           return { Vorname: firstName, Nachname: lastName };
         })
         .filter((ref) => ref.Vorname !== "" || ref.Nachname !== "")

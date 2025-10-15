@@ -133,6 +133,44 @@
         min-width: 220px;
       }
 
+      .log-section h2 {
+        font-size: 1.25rem;
+        margin: 0 0 12px;
+      }
+
+      .log-container {
+        max-height: 240px;
+        overflow-y: auto;
+        background: rgba(15, 23, 42, 0.4);
+        border-radius: 8px;
+        border: 1px solid rgba(148, 163, 184, 0.2);
+        padding: 12px 16px;
+      }
+
+      #logList {
+        list-style: none;
+        margin: 0;
+        padding: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        font-size: 0.9rem;
+      }
+
+      .log-entry {
+        color: #e2e8f0;
+        line-height: 1.4;
+        word-break: break-word;
+      }
+
+      .log-entry.success {
+        color: #4ade80;
+      }
+
+      .log-entry.error {
+        color: #f87171;
+      }
+
       @media (max-width: 720px) {
         fieldset legend {
           font-size: 0.95rem;
@@ -209,6 +247,13 @@
           <tbody id="resultsBody"></tbody>
         </table>
       </section>
+
+      <section class="log-section">
+        <h2>Activity log</h2>
+        <div class="log-container">
+          <ul id="logList"></ul>
+        </div>
+      </section>
     </main>
 
     <script>
@@ -231,12 +276,35 @@
       const runButton = document.getElementById("runButton");
       const closeButton = document.getElementById("closeButton");
       const headlessMode = document.getElementById("headlessMode");
+      const logList = document.getElementById("logList");
+      const MAX_LOG_ENTRIES = 100;
 
-      function setStatus(message, tone = "neutral") {
+      function addLog(message, tone = "neutral") {
+        if (!logList || !message) return;
+        const entry = document.createElement("li");
+        entry.className = "log-entry";
+        if (tone === "error") entry.classList.add("error");
+        if (tone === "success") entry.classList.add("success");
+        const time = new Date().toLocaleTimeString();
+        entry.textContent = `[${time}] ${message}`;
+        logList.appendChild(entry);
+        while (logList.children.length > MAX_LOG_ENTRIES) {
+          logList.removeChild(logList.firstChild);
+        }
+        const container = logList.parentElement;
+        if (container) {
+          container.scrollTop = container.scrollHeight;
+        }
+      }
+
+      function setStatus(message, tone = "neutral", options = {}) {
         statusLine.textContent = message;
         statusLine.classList.remove("error", "success");
         if (tone === "error") statusLine.classList.add("error");
         if (tone === "success") statusLine.classList.add("success");
+        if (options.log !== false) {
+          addLog(message, tone);
+        }
       }
 
       function competitionCheckboxes() {
@@ -361,6 +429,7 @@
             competitionTypeList.appendChild(wrapper);
           });
           state.optionsLoaded = true;
+          addLog("Options metadata loaded.", "success");
         } catch (err) {
           console.error(err);
           setStatus("Could not load options metadata.", "error");
@@ -531,6 +600,7 @@
 
       document.addEventListener("DOMContentLoaded", loadOptions);
       updateBulkRefereesButton();
+      addLog("UI ready.");
     </script>
   </body>
 </html>

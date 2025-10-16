@@ -1,0 +1,74 @@
+import { test, expect } from '@playwright/test';
+
+test('test', async ({ page }) => {
+  await page.goto('https://www.dfbnet.org/spielplus/mod_sbo/webflow.do?event=START&dmg_menu=102');
+  await expect(page.locator('form[name="actionForm"]')).toMatchAriaSnapshot(`
+    - heading "Spielsuche" [level=5]
+    - text: von
+    - textbox: /\\d+\\.\\d+\\.\\d+/
+    - img
+    - text: bis
+    - textbox: /\\d+\\.\\d+\\.\\d+/
+    - img
+    - text: Wettkampftyp
+    - combobox "Wettkampftyp":
+      - text: Keine Auswahl
+      - listbox:
+        - option "Keine Auswahl" [selected]
+        - option "Meisterschaft"
+        - option "Spielnachmittag"
+        - option "Pokal"
+        - option "Turnier"
+        - option "Freundschaftsspiel"
+        - option "Futsal-Ligabetrieb"
+        - option "Hallenturnier"
+        - option "Beachsoccer-Meisterschaft"
+        - option "Auswahlspiel"
+        - option "Auswahl-Freundschaftsspiel"
+        - option "Auswahlturnier"
+        - option "Auswahl-Trainingsspiel"
+    - img
+    - text: Verein
+    - combobox "Wettkampftyp": /FC Hertha \\d+ Zehlendorf \\(\\d+\\)/
+    - listbox:
+      - option /FC Hertha \\d+ Zehlendorf \\(\\d+\\)/ [selected]
+    - img
+    - text: Mannschaftsart
+    - combobox "Wettkampftyp": Keine Auswahl
+    - listbox:
+      - option "Keine Auswahl" [selected]
+      - option /Herren Ü\\d+/
+      - option /Herren Ü\\d+/
+      - option /Herren Ü\\d+ Freizeit\\/Betrieb/
+      - option /Herren Ü\\d+/
+      - option /Herren Ü\\d+ Freizeit\\/Betrieb/
+      - option /Herren Ü\\d+/
+      - option /Herren Ü\\d+ \\(11er\\)/
+      - option /Herren Ü\\d+ Freizeit\\/Betrieb/
+      - option /Herren Ü\\d+/
+      - option /Herren Ü\\d+ Freizeit\\/Betrieb/
+      - option "Herren"
+      - option "Herren Freizeit/Betrieb"
+      - option "Herren Handicap-Fußball"
+      - option "A-Junioren"
+      - option "B-Junioren"
+      - option "C-Junioren"
+      - option "D-Junioren"
+      - option "E-Junioren"
+      - option "F-Junioren"
+      - option "G-Junioren"
+      - option /Frauen Ü\\d+/
+      - option "Frauen"
+      - option "A-Juniorinnen"
+      - option "B-Juniorinnen"
+      - option "C-Juniorinnen"
+      - option "D-Juniorinnen"
+      - option "E-Juniorinnen"
+      - option "F-Juniorinnen"
+      - option "G-Juniorinnen"
+      - option "Freizeitsport"
+    - img
+    - button "Eingaben leeren"
+    - button "Suchen"
+    `);
+});

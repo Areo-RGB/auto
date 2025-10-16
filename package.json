@@ -5,7 +5,9 @@
   "main": "src/navigation_to_spielsuche.ts",
   "scripts": {
     "start": "ts-node src/ui_server.ts & sleep 2 && xdg-open http://localhost:3000 2>/dev/null",
+    "start:copy3": "ts-node \"src copy 3/ui_server.ts\"",
     "test": "vitest run",
+    "kill": "taskkill /F /IM node.exe",
     "test:watch": "vitest --watch",
     "test:coverage": "vitest run --coverage",
     "codegen": "npx playwright codegen"
@@ -15,7 +17,6 @@
   "license": "ISC",
   "type": "commonjs",
   "dependencies": {
-    "@rollup/rollup-linux-x64-gnu": "^4.52.4",
     "express": "^5.1.0",
     "playwright": "^1.56.0"
   },
